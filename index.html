@@ -1,0 +1,748 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WOPR · Undisclosed Location</title>
+  <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:      #05fa0d;
+      --green-dim:  #03a808;
+      --green-dark: #021f03;
+      --green-glow: rgba(5,250,13,0.15);
+      --bg:         #000000;
+      --surface:    #050f05;
+      --border:     rgba(5,250,13,0.2);
+      --border-hi:  rgba(5,250,13,0.5);
+      --red:        #fa2005;
+      --red-dim:    #a81503;
+      --red-glow:   rgba(250,32,5,0.15);
+    }
+
+    /* CRT scanline overlay */
+    body::before {
+      content: '';
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0,0,0,0.08) 3px,
+        rgba(0,0,0,0.08) 4px
+      );
+    }
+
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      background: var(--bg);
+      color: var(--green);
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto 1fr auto;
+      text-shadow: 0 0 8px rgba(5,250,13,0.6);
+    }
+
+    /* ── Header ── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    .cursor-blink {
+      display: inline-block;
+      width: 11px; height: 18px;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: blink 1.1s step-end infinite;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    header h1 {
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .header-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .header-right span {
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      color: var(--green-dim);
+      text-shadow: none;
+    }
+    .online-badge {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      color: var(--green);
+      border: 1px solid var(--border-hi);
+      padding: 3px 10px;
+      animation: border-pulse 2s ease-in-out infinite;
+    }
+    @keyframes border-pulse {
+      0%,100% { border-color: var(--border-hi); box-shadow: 0 0 6px var(--green-glow); }
+      50%      { border-color: var(--border);    box-shadow: none; }
+    }
+
+    /* ── Left: controls ── */
+    .controls-panel {
+      padding: 32px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      border-right: 1px solid var(--border);
+    }
+
+    .section-label {
+      font-size: 10px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--green-dim);
+      text-shadow: none;
+    }
+
+    /* Device card */
+    .device-card {
+      border: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      background: var(--surface);
+      position: relative;
+    }
+    .device-card::before,
+    .device-card::after {
+      content: '';
+      position: absolute;
+      width: 10px; height: 10px;
+      border-color: var(--green);
+      border-style: solid;
+    }
+    .device-card::before { top: -1px; left: -1px;  border-width: 2px 0 0 2px; }
+    .device-card::after  { bottom: -1px; right: -1px; border-width: 0 2px 2px 0; }
+
+    .device-header {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+    .device-header h2 {
+      font-size: 14px;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .device-header p {
+      font-size: 11px;
+      color: var(--green-dim);
+      text-shadow: none;
+      letter-spacing: 0.06em;
+    }
+
+    /* Buttons */
+    .btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 22px 12px;
+      border: 1px solid;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.1s;
+      position: relative;
+      overflow: hidden;
+      background: transparent;
+    }
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .btn:hover::after { opacity: 1; }
+    .btn:active { transform: scale(0.97); }
+
+    .btn-icon { font-size: 20px; text-shadow: none; }
+
+    .btn-on {
+      color: var(--green);
+      border-color: var(--green-dim);
+      background: rgba(5,250,13,0.04);
+      text-shadow: 0 0 8px rgba(5,250,13,0.6);
+    }
+    .btn-on::after { background: var(--green-glow); }
+    .btn-on:hover {
+      border-color: var(--green);
+      box-shadow: 0 0 16px var(--green-glow), inset 0 0 16px var(--green-glow);
+    }
+
+    .btn-off {
+      color: var(--red);
+      border-color: var(--red-dim);
+      background: rgba(250,32,5,0.04);
+      text-shadow: 0 0 8px rgba(250,32,5,0.6);
+    }
+    .btn-off::after { background: var(--red-glow); }
+    .btn-off:hover {
+      border-color: var(--red);
+      box-shadow: 0 0 16px var(--red-glow), inset 0 0 16px var(--red-glow);
+    }
+
+    .btn-full { grid-column: 1 / -1; }
+
+    .btn-fly-status {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--green-dim);
+      text-shadow: none;
+      text-align: center;
+      min-height: 1em;
+      transition: color 0.3s;
+    }
+    .btn-fly-status.ok  { color: var(--green); }
+    .btn-fly-status.err { color: var(--red); }
+
+    /* Info table */
+    .info-table {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--border);
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 14px;
+      font-size: 11px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+    .info-row:last-child { border-bottom: none; }
+    .info-row .key {
+      color: var(--green-dim);
+      text-shadow: none;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-size: 10px;
+      flex-shrink: 0;
+    }
+    .info-row .val {
+      letter-spacing: 0.06em;
+      font-size: 11px;
+      text-align: right;
+    }
+    .val-online {
+      color: var(--green);
+      animation: blink 1.1s step-end infinite;
+    }
+
+    /* ── Right: chat ── */
+    .chat-panel {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 49px);
+      overflow: hidden;
+    }
+
+    .chat-panel-header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .chat-panel-header h2 {
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+    .chat-panel-header p {
+      font-size: 11px;
+      color: var(--green-dim);
+      letter-spacing: 0.06em;
+      text-shadow: none;
+    }
+    .ai-badge {
+      margin-left: auto;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--green-dim);
+      text-shadow: none;
+    }
+
+    #n8n-chat-container {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── n8n chat overrides ── */
+    #n8n-chat-container * {
+      font-family: 'Courier New', Courier, monospace !important;
+      color: var(--green) !important;
+    }
+
+    #n8n-chat-container .n8n-chat,
+    #n8n-chat-container .chat-window {
+      height: 100% !important;
+      border-radius: 0 !important;
+      box-shadow: none !important;
+      border: none !important;
+      background: var(--bg) !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    #n8n-chat-container .chat-messages-list {
+      background: var(--bg) !important;
+      flex: 1 !important;
+      padding: 20px !important;
+    }
+
+    #n8n-chat-container .chat-message.chat-message-from-bot .chat-message-bubble,
+    #n8n-chat-container .chat-message-bubble,
+    #n8n-chat-container [class*="message-bubble"],
+    #n8n-chat-container [class*="chat-bubble"] {
+      background: #050f05 !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 0 !important;
+      color: var(--green) !important;
+      text-shadow: 0 0 6px rgba(5,250,13,0.4) !important;
+      font-size: 13px !important;
+      box-shadow: none !important;
+    }
+
+    #n8n-chat-container .chat-message.chat-message-from-user .chat-message-bubble,
+    #n8n-chat-container .chat-message-from-user [class*="message-bubble"],
+    #n8n-chat-container .chat-message-from-user [class*="chat-bubble"] {
+      background: rgba(5,250,13,0.07) !important;
+      border: 1px solid rgba(5,250,13,0.35) !important;
+      border-radius: 0 !important;
+      color: var(--green) !important;
+      text-shadow: 0 0 6px rgba(5,250,13,0.4) !important;
+      font-size: 13px !important;
+      box-shadow: none !important;
+    }
+
+    #n8n-chat-container div,
+    #n8n-chat-container section,
+    #n8n-chat-container article,
+    #n8n-chat-container p {
+      background-color: transparent !important;
+    }
+
+    #n8n-chat-container .chat-input,
+    #n8n-chat-container .chat-inputs-wrapper {
+      background: var(--surface) !important;
+      border-top: 1px solid var(--border) !important;
+      border-radius: 0 !important;
+      padding: 12px 16px !important;
+    }
+
+    #n8n-chat-container textarea,
+    #n8n-chat-container input[type="text"],
+    #n8n-chat-container input {
+      background: #050f05 !important;
+      color: var(--green) !important;
+      caret-color: var(--green) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 0 !important;
+      font-family: 'Courier New', Courier, monospace !important;
+      font-size: 13px !important;
+      letter-spacing: 0.04em !important;
+      text-shadow: 0 0 6px rgba(5,250,13,0.5) !important;
+      padding: 10px 12px !important;
+      resize: none !important;
+      outline: none !important;
+    }
+
+    #n8n-chat-container textarea:focus,
+    #n8n-chat-container input:focus {
+      border-color: var(--green) !important;
+      box-shadow: 0 0 10px var(--green-glow) !important;
+    }
+
+    #n8n-chat-container textarea::placeholder,
+    #n8n-chat-container input::placeholder {
+      color: var(--green-dim) !important;
+      text-shadow: none !important;
+      opacity: 1 !important;
+    }
+
+    #n8n-chat-container .chat-send-button,
+    #n8n-chat-container button[type="submit"],
+    #n8n-chat-container .chat-input button {
+      background: transparent !important;
+      border: 1px solid var(--green) !important;
+      border-radius: 0 !important;
+      color: var(--green) !important;
+      box-shadow: none !important;
+      transition: all 0.15s !important;
+    }
+    #n8n-chat-container .chat-send-button:hover,
+    #n8n-chat-container button[type="submit"]:hover {
+      background: var(--green-glow) !important;
+      box-shadow: 0 0 10px var(--green-glow) !important;
+    }
+    #n8n-chat-container .chat-send-button svg path,
+    #n8n-chat-container button svg path {
+      stroke: var(--green) !important;
+      fill: var(--green) !important;
+    }
+
+    #n8n-chat-container .chat-welcome-screen,
+    #n8n-chat-container .chat-header {
+      display: none !important;
+    }
+
+    #n8n-chat-container .chat-message-timestamp {
+      color: var(--green-dim) !important;
+      text-shadow: none !important;
+      font-size: 10px !important;
+    }
+
+    #n8n-chat-container ::-webkit-scrollbar { width: 4px; }
+    #n8n-chat-container ::-webkit-scrollbar-track { background: var(--bg); }
+    #n8n-chat-container ::-webkit-scrollbar-thumb { background: var(--green-dim); }
+
+    /* ── Motor Panel ── */
+    .motor-panel {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--border);
+      padding: 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .motor-panel .btn-row {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .btn-sub {
+      display: block;
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      color: var(--green-dim);
+      text-shadow: none;
+      margin-bottom: 4px;
+    }
+
+    .motor-meta {
+      border: 1px solid var(--border);
+    }
+
+    #m-status {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 14px 16px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 12px;
+      color: var(--green);
+      min-height: 100px;
+      white-space: pre-wrap;
+      overflow-wrap: break-word;
+      text-shadow: 0 0 6px rgba(5,250,13,0.4);
+      margin: 0;
+    }
+
+    #m-caution {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      color: var(--red);
+      text-shadow: 0 0 8px rgba(250,32,5,0.6);
+      text-transform: uppercase;
+      animation: blink 1s step-end infinite;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 780px) {
+      body { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+      .controls-panel { border-right: none; border-bottom: 1px solid var(--border); padding: 20px; }
+      .chat-panel { height: 60vh; }
+      header { padding: 12px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="cursor-blink"></div>
+    <h1>WOPR // Undisclosed Location · Remote System Control</h1>
+    <div class="header-right">
+      <span>34.052°N · 118.243°W</span>
+      <span class="online-badge">● ONLINE</span>
+    </div>
+  </header>
+
+  <div class="controls-panel">
+    <div class="section-label">&gt; Manual Override</div>
+
+    <div class="device-card">
+      <div class="device-header">
+        <h2>War Room · Switch 0</h2>
+        <p>// Shelly device · LAN</p>
+      </div>
+      <div class="btn-row">
+        <button id="sw-btn-on" class="btn btn-on" onclick="switchSet(true)">
+          <span class="btn-icon">◉</span>
+          POWER ON
+        </button>
+        <button id="sw-btn-off" class="btn btn-off" onclick="switchSet(false)">
+          <span class="btn-icon">◎</span>
+          POWER OFF
+        </button>
+      </div>
+      <div id="sw-status" class="btn-fly-status">// STANDBY</div>
+    </div>
+
+    <div class="device-card">
+      <div class="device-header">
+        <h2>On Deck: Crazyflie · UAV</h2>
+        <p>// cflib · radio://0/80/2M</p>
+      </div>
+      <div class="btn-row">
+        <button id="fly-btn" class="btn btn-on btn-full">
+          <span class="btn-icon">▲</span>
+          LAUNCH SEQUENCE
+        </button>
+      </div>
+      <div id="fly-status" class="btn-fly-status">// STANDBY</div>
+    </div>
+
+    <div class="section-label">&gt; System Status</div>
+    <div class="info-table">
+      <div class="info-row">
+        <span class="key">Tunnel</span>
+        <span class="val">unflossy-doug-togaed.ngrok-free.dev</span>
+      </div>
+      <div class="info-row">
+        <span class="key">Device IP</span>
+        <span class="val">192.168.1.x · LAN</span>
+      </div>
+      <div class="info-row">
+        <span class="key">Automation</span>
+        <span class="val">n8n · srv1315840.hstgr.cloud</span>
+      </div>
+      <div class="info-row">
+        <span class="key">Protocol</span>
+        <span class="val">WebSocket · TLS</span>
+      </div>
+      <div class="info-row">
+        <span class="key">Status</span>
+        <span class="val val-online">■ CONNECTED</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-panel">
+    <div class="chat-panel-header">
+      <h2>&gt; AI Command Interface</h2>
+      <p>// n8n workflow · natural language control</p>
+      <span class="ai-badge">[ n8n powered ]</span>
+    </div>
+    <div id="n8n-chat-container"></div>
+  </div>
+
+  <!-- ── Motor Control Section ── -->
+  <div class="motor-panel">
+    <div class="section-label">&gt; Weapon Guidance &amp; Control Deck</div>
+
+    <div class="device-card">
+      <div class="device-header">
+        <h2>Stepper Motor · RPi5</h2>
+        <p>// Flask · port 5000 · ngrok tunnel</p>
+      </div>
+
+      <div class="btn-row" style="grid-template-columns:1fr 1fr 1fr;">
+        <button id="m-btn-start" class="btn btn-on" onclick="mRunMotor()">
+          <span class="btn-icon">▶</span>
+          <span class="btn-sub">OODA LOOP</span>
+          START
+        </button>
+        <button id="m-btn-sense" class="btn btn-on" onclick="mRunMotorNoReturn()">
+          <span class="btn-icon">◈</span>
+          <span class="btn-sub">AUTO SURV.</span>
+          SENSE
+        </button>
+        <button id="m-btn-shoot" class="btn btn-off" onclick="mRunMotorReverse()">
+          <span class="btn-icon">◎</span>
+          <span class="btn-sub">CAUTION</span>
+          SHOOT
+        </button>
+      </div>
+
+      <div class="motor-meta">
+        <div class="info-row">
+          <span class="key">Console State</span>
+          <span class="val" id="m-console-state">IDLE</span>
+        </div>
+        <div class="info-row">
+          <span class="key">Last Command</span>
+          <span class="val" id="m-last-command">—</span>
+        </div>
+      </div>
+
+      <pre id="m-status">// Awaiting command...</pre>
+
+      <div id="m-caution">⚠ CAUTION: LIVE HARDWARE TESTING IN PROGRESS</div>
+    </div>
+  </div>
+
+  <script>
+    async function switchSet(on) {
+      const onBtn  = document.getElementById('sw-btn-on');
+      const offBtn = document.getElementById('sw-btn-off');
+      const status = document.getElementById('sw-status');
+      onBtn.disabled = offBtn.disabled = true;
+      status.className = 'btn-fly-status';
+      status.textContent = '// TRANSMITTING…';
+      try {
+        const res = await fetch(`/api/rpc/Switch.Set?id=0&on=${on}`);
+        if (res.ok) {
+          status.className = 'btn-fly-status ok';
+          status.textContent = on ? '// POWER ON · ACCEPTED' : '// POWER OFF · ACCEPTED';
+        } else {
+          status.className = 'btn-fly-status err';
+          status.textContent = `// ERROR ${res.status}`;
+        }
+      } catch (e) {
+        status.className = 'btn-fly-status err';
+        status.textContent = '// NO SIGNAL — CHECK NGROK';
+      } finally {
+        onBtn.disabled = offBtn.disabled = false;
+      }
+    }
+
+    const MOTOR_NGROK_ENDPOINT = "/api";  // Netlify proxy → ngrok → RPi5 Flask
+
+    const CRAZYFLIE_URL = 'https://crazyflie.ngrok.app';
+
+    const flyBtn    = document.getElementById('fly-btn');
+    const flyStatus = document.getElementById('fly-status');
+
+    flyBtn.addEventListener('click', async () => {
+      flyBtn.disabled = true;
+      setFlyStatus('// TRANSMITTING…', '');
+
+      try {
+        const res = await fetch(`${CRAZYFLIE_URL}/run`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script: 'STEP1' }),
+        });
+
+        if (res.ok) {
+          setFlyStatus('// COMMAND ACCEPTED', 'ok');
+        } else {
+          setFlyStatus(`// ERROR ${res.status}`, 'err');
+        }
+      } catch (e) {
+        setFlyStatus('// NO SIGNAL — CHECK NGROK', 'err');
+      } finally {
+        flyBtn.disabled = false;
+      }
+    });
+
+    function setFlyStatus(msg, cls) {
+      flyStatus.textContent = msg;
+      flyStatus.className = 'btn-fly-status ' + cls;
+    }
+
+    function mSetButtonsDisabled(disabled) {
+      document.getElementById('m-btn-start').disabled = disabled;
+      document.getElementById('m-btn-sense').disabled = disabled;
+      document.getElementById('m-btn-shoot').disabled = disabled;
+    }
+
+    async function mCallMotor(path, label) {
+      const status = document.getElementById('m-status');
+      document.getElementById('m-console-state').textContent = 'EXECUTING';
+      document.getElementById('m-last-command').textContent = label;
+      status.textContent = '// [INIT] ' + label;
+      mSetButtonsDisabled(true);
+      try {
+        const res = await fetch(MOTOR_NGROK_ENDPOINT + path, {
+          headers: { 'ngrok-skip-browser-warning': '1' }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Request failed');
+        document.getElementById('m-console-state').textContent = 'COMPLETE';
+        status.textContent = '// [OK]\n\n' + JSON.stringify(data, null, 2);
+      } catch (e) {
+        document.getElementById('m-console-state').textContent = 'FAULT';
+        status.textContent = '// [ERROR]\n\n' + e.message;
+      } finally {
+        mSetButtonsDisabled(false);
+      }
+    }
+
+    function mRunMotor()        { mCallMotor('/motor-test',              'OODA LOOP'); }
+    function mRunMotorNoReturn() { mCallMotor('/motor-test?return=false', 'Autonomous surveillance'); }
+    function mRunMotorReverse() { mCallMotor('/motor-test?direction=-1', 'Caution'); }
+  </script>
+
+  <script type="module">
+    import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+    createChat({
+      webhookUrl: 'https://n8n.srv1315840.hstgr.cloud/webhook/d4e6d6df-6165-48ae-adfb-5ad8c3a881f1/chat',
+      target: '#n8n-chat-container',
+      mode: 'fullscreen',
+      showWelcomeScreen: false,
+      initialMessages: [
+        'SYSTEM READY.',
+        'Type a command — e.g. "turn the light on" or "turn it off".'
+      ],
+      i18n: {
+        en: {
+          title: 'Command Interface',
+          subtitle: '',
+          inputPlaceholder: '> enter command...',
+          getStarted: 'Initialize',
+        }
+      }
+    });
+  </script>
+
+</body>
+</html>

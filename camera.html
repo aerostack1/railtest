@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pneumatics Demo | Live Control</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;600;800&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg:        #03070f;
+      --panel:     #08111e;
+      --border:    #1a2d45;
+      --accent:    #00e5ff;
+      --accent2:   #ff6b35;
+      --green:     #39ff8f;
+      --red:       #ff3b5c;
+      --muted:     #4a6280;
+      --text:      #c8ddf0;
+      --mono:      'Share Tech Mono', monospace;
+      --sans:      'Exo 2', sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 40px;
+      background-image:
+        radial-gradient(ellipse 60% 30% at 80% 10%, rgba(0,229,255,0.05), transparent),
+        radial-gradient(ellipse 50% 40% at 10% 90%, rgba(255,107,53,0.04), transparent);
+    }
+
+    /* ── HEADER ── */
+    header {
+      width: 100%;
+      max-width: 1000px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0 18px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 22px;
+    }
+
+    .logo-block { display: flex; flex-direction: column; gap: 2px; }
+
+    .logo-eyebrow {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      opacity: .8;
+    }
+
+    .logo-title {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .35; }
+    }
+
+    /* ── MAIN GRID ── */
+    .grid {
+      width: 100%;
+      max-width: 1000px;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      grid-template-rows: auto auto;
+      gap: 16px;
+    }
+
+    /* ── CAMERA PANEL ── */
+    .camera-panel {
+      grid-row: 1 / 3;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .panel-header .icon { font-size: 14px; }
+
+    .camera-frame {
+      flex: 1;
+      position: relative;
+      background: #000;
+      min-height: 380px;
+    }
+
+    .camera-frame iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    .cam-overlay {
+      position: absolute;
+      top: 10px; left: 10px;
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--green);
+      background: rgba(3,7,15,.75);
+      padding: 4px 8px;
+      border-radius: 4px;
+      letter-spacing: .1em;
+      pointer-events: none;
+      z-index: 2;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* ── VALVE PANEL ── */
+    .valve-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .valve-body {
+      padding: 22px 20px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .valve-desc {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .valve-desc strong { color: var(--text); }
+
+    /* ── FIRE BUTTON ── */
+    .fire-btn {
+      position: relative;
+      width: 100%;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .fire-btn-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 22px 16px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,107,53,.35);
+      background: linear-gradient(160deg, rgba(255,107,53,.12), rgba(255,107,53,.04));
+      color: #fff;
+      transition: all .18s ease;
+      box-shadow: 0 0 24px rgba(255,107,53,.08) inset, 0 4px 20px rgba(0,0,0,.4);
+    }
+
+    .fire-btn:hover:not(:disabled) .fire-btn-inner {
+      border-color: rgba(255,107,53,.65);
+      background: linear-gradient(160deg, rgba(255,107,53,.22), rgba(255,107,53,.08));
+      box-shadow: 0 0 32px rgba(255,107,53,.18) inset, 0 0 40px rgba(255,107,53,.12), 0 4px 20px rgba(0,0,0,.4);
+      transform: translateY(-2px);
+    }
+
+    .fire-btn:active:not(:disabled) .fire-btn-inner {
+      transform: translateY(1px) scale(.98);
+    }
+
+    .fire-btn:disabled { cursor: not-allowed; opacity: .55; }
+
+    .fire-icon {
+      font-size: 36px;
+      line-height: 1;
+      filter: drop-shadow(0 0 10px var(--accent2));
+    }
+
+    .fire-label-top {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: .22em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      opacity: .8;
+    }
+
+    .fire-label-main {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .fire-label-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: .1em;
+    }
+
+    /* countdown ring */
+    .countdown-wrap {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent2);
+    }
+    .countdown-wrap.active { display: flex; }
+
+    .ring {
+      width: 32px; height: 32px;
+    }
+    .ring-track { fill: none; stroke: var(--border); stroke-width: 3; }
+    .ring-fill  { fill: none; stroke: var(--accent2); stroke-width: 3;
+                  stroke-linecap: round; stroke-dasharray: 88; stroke-dashoffset: 0;
+                  transform-origin: center; transform: rotate(-90deg);
+                  transition: stroke-dashoffset .1s linear; }
+
+    /* ── LOG PANEL ── */
+    .log-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    .log-body {
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.7;
+      min-height: 110px;
+      color: var(--green);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    /* responsive */
+    @media (max-width: 720px) {
+      .grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+      }
+      .camera-panel { grid-row: auto; }
+      .camera-frame { min-height: 260px; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-block">
+      <div class="logo-title">Prototype Proving Ground</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- ── CAMERA ── -->
+    <div class="camera-panel">
+      <div class="panel-header">
+        <span class="icon">📹</span>
+        <span>Undisclosed Location</span>
+      </div>
+      <div class="camera-frame">
+        <div class="cam-overlay" id="cam-label">LIVE STREAM</div>
+        <iframe
+          src="https://vdo.ninja/?view=ACeKnWr&label=Garage_PC"
+          allow="camera; microphone; autoplay; fullscreen"
+          allowfullscreen
+        ></iframe>
+      </div>
+    </div>
+
+    <!-- ── VALVE CONTROL ── -->
+    <div class="valve-panel">
+      <div class="panel-header">
+        <span class="icon">⚡</span>
+        <span>Testing In Progress</span>
+      </div>
+      <div class="valve-body">
+
+        <div class="valve-desc">
+          Camera Control
+        </div>
+
+        <!-- TBD Camera Controls -->
+
+      </div>
+    </div>
+
+    <!-- ── LOG ── -->
+    <div class="log-panel">
+      <div class="panel-header">
+        <span class="icon">🖥</span>
+        <span>Response Log</span>
+      </div>
+      <div class="log-body" id="log">Awaiting command…</div>
+    </div>
+
+  </div>
+
+  <script>
+    const log = document.getElementById('log');
+
+    function setLog(msg, color) {
+      log.style.color = color || 'var(--green)';
+      log.textContent = msg;
+    }
+  </script>
+</body>
+</html>
